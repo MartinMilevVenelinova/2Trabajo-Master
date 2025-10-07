@@ -82,8 +82,10 @@ GROUP BY c.customer_id, c.first_name, c.last_name
 ORDER BY "Total gastado (€)" DESC
 LIMIT 5;
 ```
+
 Esta consulta muestra los clientes más rentables, sumando el total gastado por cada uno.
 Fue una de las consultas clave para entender los datos de facturación del sistema.
+
 ---
 
 ## 🤝 Contribuciones
