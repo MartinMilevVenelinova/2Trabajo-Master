@@ -1,7 +1,7 @@
 -- 1. Crea el esquema de la BBDD.
 DROP SCHEMA IF EXISTS videostore CASCADE;
-CREATE SCHEMA videostore AUTHORIZATION CURRENT_USER;
-SET search_path TO videostore
+CREATE SCHEMA videostore;
+SET search_path TO videostore, public;
 
 -- 2. Muestra los nombres de todas las películas con una clasificación por
 -- edades de ‘R’.
@@ -22,24 +22,16 @@ WHERE a.actor_id BETWEEN 30 AND 40
 ORDER BY a.actor_id;
 
 -- 4. Obtén las películas cuyo idioma coincide con el idioma original.
-/*
-SELECT
-  f.film_id,
-  f.title,
-  l."name", 
-FROM public.film AS f, public.language AS l
-ORDER BY f.title;*/
-
-SELECT	f.film_id		AS "ID",
-  		f.title 		AS "Titulo",
-  		lang.name		AS "Lenguaje",
-  		COALESCE(lang0.name, lang.name) AS "Lenguaje Original"
-FROM public.film 		AS f
-JOIN public.language 	AS lang
+SELECT  f.film_id                     AS "ID",
+        f.title                       AS "Titulo",
+        lang.name                     AS "Lenguaje",
+        COALESCE(lang0.name, lang.name) AS "Lenguaje Original"
+FROM public.film         AS f
+JOIN public.language     AS lang
   ON lang.language_id = f.language_id
 LEFT JOIN public.language AS lang0
   ON lang0.language_id = f.original_language_id
-WHERE f.language_id = COALESCE(f.original_language_id, f.language_id)
+WHERE f.language_id = f.original_language_id
 ORDER BY f.title;
 
 -- 5. Ordena las películas por duración de forma ascendente.
@@ -95,7 +87,12 @@ FROM public.film AS f;
 
 -- 11. Encuentra lo que costó el antepenúltimo alquiler ordenado por día.
 
-WITH alquileres_con_pos AS (
+WITH pagos_por_alquiler AS (
+  SELECT p.rental_id, SUM(p.amount) AS total_pago
+  FROM public.payment AS p
+  GROUP BY p.rental_id
+),
+alquileres_con_pos AS (
   SELECT
       r.rental_id,
       DATE(r.rental_date) AS dia,
@@ -106,15 +103,14 @@ WITH alquileres_con_pos AS (
       ) AS pos_dentro_del_dia
   FROM public.rental AS r
 )
-SELECT	a.rental_id    	AS "ID alquiler",
-		a.dia        	AS "Día",
-    	a.ts_alquiler 	AS "Fecha-hora alquiler",
-    	COALESCE(SUM(p.amount), 0)	AS "Coste (€)"
+SELECT  a.rental_id                    AS "ID alquiler",
+        a.dia                          AS "Día",
+        a.ts_alquiler                  AS "Fecha-hora alquiler",
+        COALESCE(pp.total_pago, 0)     AS "Coste (€)"
 FROM alquileres_con_pos AS a
-LEFT JOIN public.payment AS p
-  ON p.rental_id = a.rental_id
+LEFT JOIN pagos_por_alquiler AS pp
+  ON pp.rental_id = a.rental_id
 WHERE a.pos_dentro_del_dia = 3
-GROUP BY a.dia, a.ts_alquiler, a.rental_id
 ORDER BY "Día" ASC, "Fecha-hora alquiler" ASC;
 
 -- 12. Encuentra el título de las películas en la tabla “film” que no sean ni ‘NC17’ ni ‘G’ en cuanto a su clasificación.
@@ -304,12 +300,12 @@ ORDER BY "Número de películas" DESC, "Nombre completo";
 -- 29. Obtener todas las películas y, si están disponibles en el inventario,
 -- mostrar la cantidad disponible.
 
-SELECT	f.film_id   		AS "ID",
-    	f.title     		AS "Título",
-    	COUNT(i.inventory_id) FILTER (WHERE public.inventory_in_stock(i.inventory_id)) 
-        AS "Unidades disponibles"
+SELECT  f.film_id                         AS "ID",
+        f.title                           AS "Título",
+        COUNT(i.inventory_id) FILTER (WHERE inventory_in_stock(i.inventory_id))
+          AS "Unidades disponibles"
 FROM public.film AS f
-LEFT JOIN public.inventory AS i 
+LEFT JOIN public.inventory AS i
   ON i.film_id = f.film_id
 GROUP BY f.film_id, f.title
 ORDER BY "Unidades disponibles" DESC, "Título";
@@ -440,12 +436,12 @@ ORDER BY "Cantidad de actores" DESC, "Nombre";
 -- 42. Encuentra todos los alquileres y los nombres de los clientes que los
 -- realizaron.
 
-SELECT 	r.rental_id                          	AS "ID alquiler",
-    	CONCAT(c.first_name, ' ', c.last_name) 	AS "Nombre completo cliente"
+SELECT  r.rental_id                           AS "ID alquiler",
+        CONCAT(c.first_name, ' ', c.last_name) AS "Nombre completo cliente"
 FROM public.rental AS r
 JOIN public.customer AS c
   ON c.customer_id = r.customer_id
-ORDER BY "Fecha de alquiler" DESC, "ID alquiler";
+ORDER BY r.rental_date DESC, "ID alquiler";
 
 -- 43. Muestra todos los clientes y sus alquileres si existen, incluyendo
 -- aquellos que no tienen alquileres.
